@@ -213,11 +213,12 @@ impl DTLSConn {
             local_certificates: config.certificates.clone(),
             insecure_skip_verify: config.insecure_skip_verify,
             verify_peer_certificate: config.verify_peer_certificate.take(),
-            roots_cas: config.roots_cas,
             client_cert_verifier: if config.client_auth as u8
                 >= ClientAuthType::VerifyClientCertIfGiven as u8
             {
-                Some(rustls::AllowAnyAuthenticatedClient::new(config.client_cas))
+                Some(rustls::server::AllowAnyAuthenticatedClient::new(
+                    config.roots_cas,
+                ))
             } else {
                 None
             },

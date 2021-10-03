@@ -73,7 +73,7 @@ impl CryptoCbc {
         let mut iv: Vec<u8> = vec![0; Self::BLOCK_SIZE];
         rand::thread_rng().fill(iv.as_mut_slice());
 
-        let write_cbc = Aes256Cbc::new_var(&self.local_key, &iv)?;
+        let write_cbc = Aes256Cbc::new_from_slices(&self.local_key, &iv)?;
         let encrypted = write_cbc.encrypt_vec(&payload);
 
         // Prepend unencrypte header with encrypted payload
@@ -102,7 +102,7 @@ impl CryptoCbc {
         let body = &body[Self::BLOCK_SIZE..];
         //TODO: add body.len() check
 
-        let read_cbc = Aes256Cbc::new_var(&self.remote_key, iv)?;
+        let read_cbc = Aes256Cbc::new_from_slices(&self.remote_key, iv)?;
 
         let decrypted = read_cbc.decrypt_vec(body)?;
 

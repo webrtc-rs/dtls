@@ -3,7 +3,7 @@ use super::*;
 use anyhow::Result;
 use dtls::crypto::{Certificate, CryptoPrivateKey};
 use rcgen::KeyPair;
-use rustls::internal::pemfile::certs;
+use rustls_pemfile;
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
@@ -98,11 +98,11 @@ pub fn load_key(path: PathBuf) -> Result<CryptoPrivateKey> {
 
 /// load_certificate Load/read certificate(s) from file
 pub fn load_certificate(path: PathBuf) -> Result<Vec<rustls::Certificate>> {
-    let f = File::open(&path)?;
+    let certs: Vec<_> = rustls_pemfile::certs(&mut BufReader::new(File::open(&path)?))
+        .unwrap()
+        .iter()
+        .map(|v| rustls::Certificate(v.clone()))
+        .collect();
 
-    let mut reader = BufReader::new(f);
-    match certs(&mut reader) {
-        Ok(ders) => Ok(ders),
-        Err(_) => Err(Error::ErrNoCertificateFound.into()),
-    }
+    Ok(certs)
 }

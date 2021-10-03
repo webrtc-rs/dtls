@@ -68,10 +68,13 @@ async fn main() -> Result<()> {
     let mut cert_pool = rustls::RootCertStore::empty();
     let f = File::open("examples/certificates/server.pub.pem")?;
     let mut reader = BufReader::new(f);
-    if let Err(_) = cert_pool.add_pem_file(&mut reader) {
+    if let Ok(Some(rustls_pemfile::Item::X509Certificate(cert))) =
+        rustls_pemfile::read_one(&mut reader)
+    {
+        cert_pool.add(&rustls::Certificate(cert))?;
+    } else {
         return Err(Error::new("cert_pool add_pem_file failed".to_owned()).into());
     }
-
     let config = Config {
         certificates: vec![certificate],
         extended_master_secret: ExtendedMasterSecretType::Require,

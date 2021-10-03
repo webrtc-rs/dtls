@@ -15,7 +15,10 @@ use der_parser::{oid, oid::Oid};
 use rcgen::KeyPair;
 use ring::rand::SystemRandom;
 use ring::signature::{EcdsaKeyPair, Ed25519KeyPair, RsaKeyPair};
+use rustls::ServerName;
+use std::convert::TryFrom;
 use std::sync::Arc;
+use std::time::SystemTime;
 
 #[derive(Clone, PartialEq)]
 pub struct Certificate {
@@ -406,13 +409,21 @@ pub(crate) fn load_certs(raw_certificates: &[Vec<u8>]) -> Result<Vec<rustls::Cer
 
 pub(crate) fn verify_client_cert(
     raw_certificates: &[Vec<u8>],
-    cert_verifier: &Arc<dyn rustls::ClientCertVerifier>,
+    cert_verifier: &Arc<dyn rustls::server::ClientCertVerifier>,
 ) -> Result<Vec<rustls::Certificate>> {
     let chains = load_certs(raw_certificates)?;
 
-    match cert_verifier.verify_client_cert(&chains, None) {
+    if chains.is_empty() {
+        return Err(rustls::Error::NoCertificatesPresented.into());
+    }
+
+    let (end_entity, intermediates) = chains
+        .split_first()
+        .ok_or(rustls::Error::NoCertificatesPresented)?;
+
+    match cert_verifier.verify_client_cert(end_entity, intermediates, SystemTime::now()) {
         Ok(_) => {}
-        Err(err) => return Err(Error::new(err.to_string()).into()),
+        Err(err) => return Err(err.into()),
     };
 
     Ok(chains)
@@ -420,17 +431,32 @@ pub(crate) fn verify_client_cert(
 
 pub(crate) fn verify_server_cert(
     raw_certificates: &[Vec<u8>],
-    cert_verifier: &Arc<dyn rustls::ServerCertVerifier>,
-    roots: &rustls::RootCertStore,
+    cert_verifier: &Arc<dyn rustls::client::ServerCertVerifier>,
     server_name: &str,
 ) -> Result<Vec<rustls::Certificate>> {
-    let chains = load_certs(raw_certificates)?;
-    let dns_name = match webpki::DNSNameRef::try_from_ascii_str(server_name) {
-        Ok(dns_name) => dns_name,
-        Err(err) => return Err(Error::new(err.to_string()).into()),
+    let server_name = match ServerName::try_from(server_name) {
+        Ok(server_name) => server_name,
+        Err(_) => return Err(Error::new("Invalid Dns Name".to_string()).into()),
     };
 
-    match cert_verifier.verify_server_cert(roots, &chains, dns_name, &[]) {
+    let chains = load_certs(raw_certificates)?;
+    if chains.is_empty() {
+        return Err(rustls::Error::NoCertificatesPresented.into());
+    }
+
+    let (end_entity, intermediates) = chains
+        .split_first()
+        .ok_or(rustls::Error::NoCertificatesPresented)?;
+
+    const SCTS: &[&[u8]] = &[];
+    match cert_verifier.verify_server_cert(
+        end_entity,
+        intermediates,
+        &server_name,
+        &mut SCTS.iter().copied(),
+        &[],
+        SystemTime::now(),
+    ) {
         Ok(_) => {}
         Err(err) => return Err(Error::new(err.to_string()).into()),
     };
