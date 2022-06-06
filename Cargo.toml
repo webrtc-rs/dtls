@@ -16,10 +16,11 @@ util = { package = "webrtc-util", version = "0.5.3", default-features = false, f
 byteorder = "1.4.3"
 rand_core = "0.6.3"
 elliptic-curve = { version = "0.11.12", features = ["default", "ecdh"] }
-p256 = { version = "0.10", features=["default", "ecdh", "ecdsa"] }
-#p384 = "0.4.1"
+p256 = { version = "0.11", features=["default", "ecdh", "ecdsa"] }
+p384 = "0.11.0"
 rand = "0.8.0"
 hmac = "0.10.1"
+sec1 = { version = "0.3.0", features = [ "std" ] }
 sha-1 = "0.9.1"
 sha2 = "0.9.1"
 aes = "0.6.0"
